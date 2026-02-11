@@ -1,7 +1,5 @@
 include .env
 
-MIGRATE_CMD=docker compose run --rm migrate
-
 ## help: print this help message
 help:
 	@echo 'Usage:'
@@ -10,7 +8,6 @@ help:
 ## up: start all services and run migrations
 up:
 	docker compose up -d
-	@echo "Services started. Checking migrations..."
 
 ## down: stop and remove all containers
 down:
@@ -30,15 +27,15 @@ migrate/new:
 
 ## migrate/up: run all up migrations
 migrate/up:
-	$(MIGRATE_CMD) up
+	docker compose run --rm -e POSTGRESQL_DSN=$(POSTGRESQL_DSN) migrate -path=/migrations/ -database=$(POSTGRESQL_DSN) up
 
 ## migrate/down: rollback the last migration
 migrate/down:
-	$(MIGRATE_CMD) down 1
+	docker compose run --rm -e POSTGRESQL_DSN=$(POSTGRESQL_DSN) migrate -path=/migrations/ -database=$(POSTGRESQL_DSN) down 1
 
 migrate/force:
 	@read -p "Enter version to force: " v; \
-	$(MIGRATE_CMD) force $$v
+	docker compose run --rm -e POSTGRESQL_DSN=$(POSTGRESQL_DSN) migrate -path=/migrations/ -database=$(POSTGRESQL_DSN) force $$v
 
 
 ## redis/cli: enter redis cli

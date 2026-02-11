@@ -13,8 +13,6 @@ services:
       - redis
       - queue
       - ws
-    command: ["/bin/transaction-monitoring-and-fraud-detection-poc"]
-    restart: unless-stopped
 
   worker:
     build:
@@ -27,14 +25,12 @@ services:
     depends_on:
       - queue
       - redis
-    command: ["/bin/transaction-monitoring-and-fraud-detection-poc"]
-    restart: unless-stopped
 
   ws:
     build:
       context: .
       args:
-        TARGET: ws-gateway
+        TARGET: websocket
     container_name: websocket_gateway
     ports:
       - "9000:9000"
@@ -42,13 +38,11 @@ services:
       - .env
     depends_on:
       - redis
-    command: ["/bin/transaction-monitoring-and-fraud-detection-poc"]
-    restart: unless-stopped
 
   db:
     image: postgres:16-alpine
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     environment:
       POSTGRES_USER:     ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
@@ -63,13 +57,11 @@ services:
     image: migrate/migrate
     volumes:
       - ./migrations:/migrations
+    env_file:
+      - .env
     depends_on:
       db:
         condition: service_healthy
-    command:
-      - -path=/migrations/
-      - -database=${DATABASE_URL}
-      - up
 
   redis:
     image: redis:latest
