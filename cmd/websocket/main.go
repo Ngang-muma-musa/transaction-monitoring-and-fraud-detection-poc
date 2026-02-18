@@ -1,5 +1,5 @@
 // cmd/ws-gateway/main.go
-package websocket
+package main
 
 import (
 	"context"

@@ -1,7 +1,7 @@
 ############################
 # STEP 1: Build executable
 ############################
-FROM golang:1.24-alpine AS builder
+FROM golang:1.25-alpine AS builder
 
 RUN apk add --no-cache git gcc g++ libc-dev
 
@@ -32,5 +32,4 @@ WORKDIR /app
 
 EXPOSE 8080
 
-# FIX 5: Execute the specific path we created
 ENTRYPOINT ["/usr/local/bin/app-binary"]

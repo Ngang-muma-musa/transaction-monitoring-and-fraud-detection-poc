@@ -5,6 +5,9 @@ help:
 	@echo 'Usage:'
 	@sed -n 's/^##//p' ${MAKEFILE_LIST} | column -t -s ':' |  sed -e 's/^/ /'
 
+build:
+	docker compose build
+
 ## up: start all services and run migrations
 up:
 	docker compose up -d
