@@ -1,5 +1,13 @@
-DROP INDEX IF EXISTS idx_transactions_user_velocity;
+CREATE TYPE transaction_status AS ENUM ('PENDING','QUEUED','APPROVED', 'DECLINED', 'FLAGGED');
 
-DROP TABLE IF EXISTS transactions;
+CREATE TABLE transactions (
+    id UUID PRIMARY KEY,
+    user_id UUID NOT NULL,
+    amount DECIMAL(12, 2) NOT NULL,
+    currency VARCHAR(3) DEFAULT 'USD',
+    status transaction_status DEFAULT 'PENDING',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
 
-DROP TYPE IF EXISTS transaction_status;
+-- Index for the "Behavioral/Velocity" layer we built earlier
+CREATE INDEX idx_transactions_user_velocity ON transactions (user_id, created_at) WHERE status != 'DECLINED';

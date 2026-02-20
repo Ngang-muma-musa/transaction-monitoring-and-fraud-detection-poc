@@ -25,8 +25,8 @@ func (r *TransactionRepository) Create(
 	tx *domain.Transaction,
 ) error {
 	query := `
-        INSERT INTO transactions (id, user_id, amount, status, created_at)
-        VALUES ($1, $2, $3, $4, $5)`
+        INSERT INTO transactions (id, user_id, amount,currency, status, created_at)
+        VALUES ($1, $2, $3, $4, $5, $6)`
 
 	_, err := r.db.ExecContext(
 		ctx,
@@ -34,6 +34,7 @@ func (r *TransactionRepository) Create(
 		tx.ID,
 		tx.UserID,
 		tx.Amount,
+		tx.Currency,
 		tx.Status,
 		tx.CreatedAt,
 	)
@@ -45,7 +46,7 @@ func (r *TransactionRepository) FindByID(
 	id string,
 ) (*domain.Transaction, error) {
 	query := `
-		SELECT id, user_id, amount, status, created_at
+		SELECT id, user_id, amount, currency, status, created_at
 		FROM transactions WHERE id = $1`
 
 	var tx domain.Transaction
@@ -53,6 +54,7 @@ func (r *TransactionRepository) FindByID(
 		&tx.ID,
 		&tx.UserID,
 		&tx.Amount,
+		&tx.Currency,
 		&tx.Status,
 		&tx.CreatedAt,
 	)
@@ -60,6 +62,40 @@ func (r *TransactionRepository) FindByID(
 		return nil, ErrPaymentNotFound
 	}
 	return &tx, err
+}
+
+func (r *TransactionRepository) FindAll(
+	ctx context.Context,
+) ([]domain.Transaction, error) {
+	query := `
+		SELECT id, user_id, amount, currency, status, created_at
+		FROM transactions`
+
+	rows, err := r.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("error querying transactions: %w", err)
+	}
+	defer rows.Close()
+
+	var transactions []domain.Transaction
+	for rows.Next() {
+		var tx domain.Transaction
+		if err := rows.Scan(
+			&tx.ID,
+			&tx.UserID,
+			&tx.Amount,
+			&tx.Currency,
+			&tx.Status,
+			&tx.CreatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("error scanning transaction row: %w", err)
+		}
+		transactions = append(transactions, tx)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating transaction rows: %w", err)
+	}
+	return transactions, nil
 }
 
 func (r *TransactionRepository) UpdateStatus(

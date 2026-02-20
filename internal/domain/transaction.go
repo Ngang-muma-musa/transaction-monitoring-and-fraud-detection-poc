@@ -6,6 +6,7 @@ type TransactionStatus string
 
 const (
 	StatusPending  TransactionStatus = "PENDING"
+	StatusQueued   TransactionStatus = "QUEUED"
 	StatusApproved TransactionStatus = "APPROVED"
 	StatusRejected TransactionStatus = "REJECTED"
 	StatusFlagged  TransactionStatus = "FLAGGED"

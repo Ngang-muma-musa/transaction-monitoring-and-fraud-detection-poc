@@ -4,6 +4,7 @@ import (
 	"context"
 	"frauddetection/internal/domain"
 	"frauddetection/internal/domain/ports"
+	"log"
 	"time"
 )
 
@@ -28,7 +29,10 @@ func (p *TransactionProcessor) Process(
 		return err
 	}
 
-	if result.RiskScore > 0.8 {
+	log.Printf("Fraud analysis result for transaction %s: score=%.2f reasons=%v",
+		tx.ID, result.RiskScore, result.Reason)
+
+	if result.RiskScore > 0.6 {
 		return p.repo.UpdateStatus(
 			ctx,
 			tx.ID,

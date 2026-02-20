@@ -3,6 +3,7 @@ package queue
 import (
 	"context"
 	"fmt"
+	"log"
 	"strconv"
 	"sync"
 	"time"
@@ -13,13 +14,15 @@ import (
 )
 
 type BeanstalkQueue struct {
-	mu   sync.Mutex
-	tube *beanstalk.Tube
+	mu      sync.Mutex
+	tube    *beanstalk.Tube
+	tubeSet *beanstalk.TubeSet
 }
 
 func NewBeanstalkQueue(conn *beanstalk.Conn, tubeName string) *BeanstalkQueue {
 	return &BeanstalkQueue{
-		tube: &beanstalk.Tube{Conn: conn, Name: tubeName},
+		tube:    &beanstalk.Tube{Conn: conn, Name: tubeName},
+		tubeSet: beanstalk.NewTubeSet(conn, tubeName),
 	}
 }
 
@@ -38,8 +41,9 @@ func (q *BeanstalkQueue) Publish(
 }
 
 func (q *BeanstalkQueue) Reserve(ctx context.Context) (*domain.Job, error) {
+	log.Printf("debug: watching tube: %v", q.tubeSet.Name)
 	q.mu.Lock()
-	id, body, err := q.tube.Conn.Reserve(5 * time.Second)
+	id, body, err := q.tubeSet.Reserve(5 * time.Second)
 	q.mu.Unlock()
 
 	if err != nil {
@@ -84,5 +88,5 @@ func (q *BeanstalkQueue) Delete(ctx context.Context, id string) error {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
-	return q.tube.Conn.Delete(jobID)
+	return q.tubeSet.Conn.Delete(jobID)
 }

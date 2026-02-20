@@ -31,7 +31,7 @@ func (r *RedisRateLimiter) Allow(
 		return false, err
 	}
 	if count == 1 {
-		r.client.Expire(ctx, key, r.window)
+		r.client.Expire(ctx, fmt.Sprintf("rate-limit-key:user-%s", key), r.window)
 	}
 	return count <= int64(r.limit), nil
 }

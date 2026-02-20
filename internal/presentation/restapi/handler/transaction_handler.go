@@ -3,10 +3,10 @@ package handler
 import (
 	"errors"
 	"fmt"
-	"net/http"
 	"frauddetection/internal/application"
 	"frauddetection/internal/domain"
 	orm "frauddetection/internal/infrastructure/postgresql"
+	"net/http"
 
 	"github.com/labstack/echo/v4"
 )
@@ -14,6 +14,7 @@ import (
 type Payment interface {
 	ProcessPayment(c echo.Context) error
 	GetPaymentByID(c echo.Context) error
+	GetAllPayments(c echo.Context) error
 }
 
 type PaymentServiceHandler struct {
@@ -56,15 +57,12 @@ func (p *PaymentServiceHandler) ProcessPayment(c echo.Context) error {
 		}
 
 		return c.JSON(http.StatusInternalServerError, map[string]string{
-			"error": "Error occurred creating payment",
+			"error":       "Error occurred creating payment",
+			"err_message": err.Error(),
 		})
 	}
 
-	return c.JSON(http.StatusCreated, map[string]any{
-		"status":  "success",
-		"data":    payment,
-		"message": "Payment queued successfully",
-	})
+	return c.JSON(http.StatusCreated, payment)
 }
 
 func (p *PaymentServiceHandler) GetPaymentByID(c echo.Context) error {
@@ -94,9 +92,22 @@ func (p *PaymentServiceHandler) GetPaymentByID(c echo.Context) error {
 		}
 
 		return c.JSON(http.StatusInternalServerError, map[string]string{
-			"error": "Error occurred creating payment",
+			"error":       "Error occurred getting payment",
+			"err_message": err.Error(),
 		})
 	}
 
-	return c.JSON(http.StatusCreated, payment)
+	return c.JSON(http.StatusOK, payment)
+}
+
+func (p *PaymentServiceHandler) GetAllPayments(c echo.Context) error {
+	payments, err := p.paymentServiceApp.GetAllPayments(c.Request().Context())
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error":       "Error occurred getting payments",
+			"err_message": err.Error(),
+		})
+	}
+
+	return c.JSON(http.StatusOK, payments)
 }
