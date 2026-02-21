@@ -8,7 +8,7 @@ const (
 	StatusPending  TransactionStatus = "PENDING"
 	StatusQueued   TransactionStatus = "QUEUED"
 	StatusApproved TransactionStatus = "APPROVED"
-	StatusRejected TransactionStatus = "REJECTED"
+	StatusDeclined TransactionStatus = "DECLINED"
 	StatusFlagged  TransactionStatus = "FLAGGED"
 )
 

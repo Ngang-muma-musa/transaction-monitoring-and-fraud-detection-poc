@@ -99,14 +99,14 @@ func (s *PaymentService) CreateAndQueuePayment(
 		Payload: p,
 	}
 
-	if err := s.queue.Publish(ctx, job); err != nil {
-		log.Printf("Error publishing payment to queue: %v", err)
-		return nil, fmt.Errorf("Error publishing to queue %s", err.Error())
-	}
-
 	if err := s.repo.UpdateStatus(ctx, payment.ID, domain.StatusQueued); err != nil {
 		log.Printf("Error updating payment status to QUEUED: %v", err)
 		return nil, fmt.Errorf("Error updating payment status to QUEUED: %s", err.Error())
+	}
+
+	if err := s.queue.Publish(ctx, job); err != nil {
+		log.Printf("Error publishing payment to queue: %v", err)
+		return nil, fmt.Errorf("Error publishing to queue %s", err.Error())
 	}
 
 	return payment, nil

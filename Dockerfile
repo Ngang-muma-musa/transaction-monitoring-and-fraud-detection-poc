@@ -32,4 +32,7 @@ WORKDIR /app
 
 EXPOSE 8080
 
+# Copy static web assets from build stage so runtime can serve them
+COPY --from=builder /app/web /app/web
+
 ENTRYPOINT ["/usr/local/bin/app-binary"]

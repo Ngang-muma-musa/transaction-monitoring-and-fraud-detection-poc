@@ -1,0 +1,1161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FraudLens — Transaction Monitor</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #080b12;
+    --panel: #0d1220;
+    --border: #1a2540;
+    --accent: #00f5c4;
+    --warn: #f5a623;
+    --danger: #ff3b5c;
+    --safe: #00d68f;
+    --muted: #3a4a6a;
+    --text: #c8d8f0;
+    --text-dim: #5a7090;
+    --mono: 'Share Tech Mono', monospace;
+    --sans: 'Syne', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Animated grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,245,196,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,245,196,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 280px 1fr 320px;
+    grid-template-rows: 60px 1fr;
+    height: 100vh;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* HEADER */
+  header {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(8,11,18,0.9);
+    backdrop-filter: blur(10px);
+  }
+
+  .logo {
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .logo-icon {
+    width: 28px; height: 28px;
+    background: var(--accent);
+    clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+    animation: pulse-hex 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse-hex {
+    0%,100% { opacity: 1; }
+    50% { opacity: 0.6; }
+  }
+
+  .logo span { color: var(--accent); }
+
+  .ws-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+
+  .ws-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--muted);
+    transition: background 0.3s;
+  }
+  .ws-dot.connected { background: var(--accent); box-shadow: 0 0 8px var(--accent); animation: blink 1.5s infinite; }
+  .ws-dot.error { background: var(--danger); }
+
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  .header-stats {
+    display: flex;
+    gap: 24px;
+  }
+
+  .hstat {
+    text-align: center;
+  }
+  .hstat-val {
+    font-family: var(--mono);
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--accent);
+  }
+  .hstat-label { font-size: 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; }
+
+  /* SIDEBAR LEFT */
+  .sidebar-left {
+    border-right: 1px solid var(--border);
+    padding: 20px 16px;
+    overflow-y: auto;
+    background: rgba(13,18,32,0.6);
+  }
+
+  .section-title {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* Test Transaction Builder */
+  .tx-builder {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .field-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+  }
+
+  input, select {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 8px 10px;
+    width: 100%;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  input:focus, select:focus {
+    border-color: var(--accent);
+    background: rgba(0,245,196,0.04);
+  }
+
+  select option { background: var(--panel); }
+
+  .scenario-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+
+  .scenario-btn {
+    padding: 8px 6px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-dim);
+    font-size: 10px;
+    font-family: var(--sans);
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+    line-height: 1.3;
+  }
+
+  .scenario-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(0,245,196,0.06); }
+  .scenario-btn.danger:hover { border-color: var(--danger); color: var(--danger); background: rgba(255,59,92,0.06); }
+  .scenario-btn.warn:hover { border-color: var(--warn); color: var(--warn); background: rgba(245,166,35,0.06); }
+
+  .btn-primary {
+    background: var(--accent);
+    color: var(--bg);
+    border: none;
+    border-radius: 4px;
+    padding: 10px;
+    font-family: var(--sans);
+    font-weight: 700;
+    font-size: 13px;
+    cursor: pointer;
+    width: 100%;
+    letter-spacing: 0.5px;
+    transition: all 0.2s;
+  }
+  .btn-primary:hover { background: #00d4a8; transform: translateY(-1px); }
+  .btn-primary:active { transform: translateY(0); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  /* Config */
+  .config-section {
+    margin-top: 20px;
+  }
+
+  /* MAIN FEED */
+  .main-feed {
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .feed-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .feed-title { font-size: 14px; font-weight: 700; }
+
+  .filter-tabs {
+    display: flex;
+    gap: 2px;
+    background: rgba(255,255,255,0.04);
+    padding: 3px;
+    border-radius: 6px;
+  }
+
+  .tab {
+    padding: 5px 12px;
+    border-radius: 4px;
+    font-size: 11px;
+    cursor: pointer;
+    color: var(--text-dim);
+    transition: all 0.2s;
+    border: none;
+    background: none;
+    font-family: var(--sans);
+  }
+  .tab.active { background: var(--border); color: var(--text); }
+
+  .tx-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .tx-list::-webkit-scrollbar { width: 4px; }
+  .tx-list::-webkit-scrollbar-track { background: transparent; }
+  .tx-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .tx-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--muted);
+    border-radius: 6px;
+    padding: 12px 14px;
+    display: grid;
+    grid-template-columns: auto 1fr auto auto;
+    gap: 12px;
+    align-items: center;
+    animation: slideIn 0.3s ease;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+  }
+
+  .tx-card:hover { background: rgba(255,255,255,0.03); }
+  .tx-card.APPROVED { border-left-color: var(--safe); }
+  .tx-card.FLAGGED { border-left-color: var(--warn); }
+  .tx-card.DECLINED { border-left-color: var(--danger); }
+  .tx-card.PENDING { border-left-color: var(--muted); }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateX(-10px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  .tx-icon {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+    background: rgba(255,255,255,0.05);
+  }
+
+  .tx-meta { min-width: 0; }
+  .tx-id { font-family: var(--mono); font-size: 11px; color: var(--text-dim); }
+  .tx-desc { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .tx-amount {
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 700;
+    text-align: right;
+  }
+
+  .tx-status {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 3px 8px;
+    border-radius: 20px;
+    background: rgba(255,255,255,0.06);
+  }
+
+  .status-APPROVED { color: var(--safe); background: rgba(0,214,143,0.1); }
+  .status-FLAGGED { color: var(--warn); background: rgba(245,166,35,0.1); }
+  .status-DECLINED { color: var(--danger); background: rgba(255,59,92,0.1); }
+  .status-PENDING { color: var(--muted); background: rgba(58,74,106,0.2); }
+
+  .tx-time { font-family: var(--mono); font-size: 10px; color: var(--text-dim); }
+
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    gap: 12px;
+    color: var(--text-dim);
+    font-size: 13px;
+  }
+
+  .empty-icon { font-size: 40px; opacity: 0.3; }
+
+  /* RIGHT PANEL */
+  .sidebar-right {
+    border-left: 1px solid var(--border);
+    overflow-y: auto;
+    background: rgba(13,18,32,0.6);
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Risk Gauge */
+  .gauge-section {
+    padding: 20px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .gauge-wrap {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px 0;
+  }
+
+  .gauge-svg { width: 160px; height: 90px; }
+
+  .gauge-val {
+    font-family: var(--mono);
+    font-size: 28px;
+    font-weight: 700;
+    margin-top: -8px;
+    transition: color 0.5s;
+  }
+
+  .gauge-label { font-size: 10px; color: var(--text-dim); letter-spacing: 2px; text-transform: uppercase; }
+
+  /* Stats grid */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .stat-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+  }
+
+  .stat-val {
+    font-family: var(--mono);
+    font-size: 20px;
+    font-weight: 700;
+  }
+
+  .stat-label { font-size: 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; margin-top: 2px; }
+
+  /* Alert feed */
+  .alerts-section {
+    padding: 16px;
+    flex: 1;
+  }
+
+  .alert-item {
+    display: flex;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(26,37,64,0.5);
+    animation: fadeIn 0.4s ease;
+  }
+
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+  .alert-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    margin-top: 4px;
+    flex-shrink: 0;
+  }
+
+  .alert-content { font-size: 12px; line-height: 1.5; }
+  .alert-time { font-family: var(--mono); font-size: 10px; color: var(--text-dim); }
+
+  /* Response modal */
+  .response-panel {
+    position: fixed;
+    bottom: 16px; right: 340px;
+    width: 380px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    font-family: var(--mono);
+    font-size: 11px;
+    z-index: 100;
+    animation: slideUp 0.3s ease;
+    display: none;
+  }
+
+  @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+  .response-panel.show { display: block; }
+  .response-panel pre { white-space: pre-wrap; word-break: break-all; color: var(--accent); max-height: 200px; overflow-y: auto; }
+  .response-close { float: right; cursor: pointer; color: var(--text-dim); font-size: 14px; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); }
+
+  .risk-bar {
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    margin-top: 4px;
+    overflow: hidden;
+  }
+  .risk-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.5s, background 0.5s;
+  }
+
+  .ws-log {
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    max-height: 100px;
+    overflow-y: auto;
+  }
+
+  .ws-log-line { padding: 1px 0; }
+  .ws-log-line.in { color: #4a9; }
+  .ws-log-line.out { color: #6af; }
+  .ws-log-line.err { color: var(--danger); }
+  .ws-log-line.sys { color: var(--text-dim); }
+
+  .sparkline-wrap {
+    padding: 0 16px 16px;
+  }
+
+  canvas.spark { width: 100%; height: 60px; }
+</style>
+</head>
+<body>
+<div class="layout">
+
+  <!-- HEADER -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon"></div>
+      Fraud<span>Lens</span>
+    </div>
+    <div class="header-stats">
+      <div class="hstat">
+        <div class="hstat-val" id="stat-total">0</div>
+        <div class="hstat-label">Total Tx</div>
+      </div>
+      <div class="hstat">
+        <div class="hstat-val" style="color:var(--safe)" id="stat-approved">0</div>
+        <div class="hstat-label">Approved</div>
+      </div>
+      <div class="hstat">
+        <div class="hstat-val" style="color:var(--warn)" id="stat-flagged">0</div>
+        <div class="hstat-label">Flagged</div>
+      </div>
+      <div class="hstat">
+        <div class="hstat-val" style="color:var(--danger)" id="stat-declined">0</div>
+        <div class="hstat-label">Declined</div>
+      </div>
+    </div>
+    <div class="ws-status">
+      <div class="ws-dot" id="ws-dot"></div>
+      <span id="ws-label">DISCONNECTED</span>
+    </div>
+  </header>
+
+  <!-- LEFT SIDEBAR: Transaction Builder -->
+  <aside class="sidebar-left">
+    <div class="section-title">Quick Scenarios</div>
+    <div style="margin-bottom:8px;font-size:10px;color:var(--text-dim);letter-spacing:0.5px">Layer 1 — Foreign Currency &gt;6000</div>
+    <div class="scenario-grid">
+      <button class="scenario-btn danger" onclick="loadScenario('l1-trigger')">🔴 Foreign<br>&gt;6000 USD</button>
+      <button class="scenario-btn" onclick="loadScenario('l1-safe')">✅ Foreign<br>&lt;6000 USD</button>
+      <button class="scenario-btn" onclick="loadScenario('l1-xaf-safe')">✅ Large<br>XAF</button>
+    </div>
+    <div style="margin:10px 0 8px;font-size:10px;color:var(--text-dim);letter-spacing:0.5px">Layer 2 — Velocity &gt;1000/hr</div>
+    <div class="scenario-grid">
+      <button class="scenario-btn warn" onclick="loadScenario('l2-velocity')">🔁 Velocity<br>Burst ×3</button>
+      <button class="scenario-btn danger" onclick="loadScenario('l1-l2-combo')">🔴 L1 + L2<br>Combo</button>
+    </div>
+    <div style="margin:10px 0 8px;font-size:10px;color:var(--text-dim);letter-spacing:0.5px">Baseline</div>
+    <div class="scenario-grid">
+      <button class="scenario-btn" onclick="loadScenario('safe')">✅ Normal<br>XAF</button>
+    </div>
+
+    <div class="section-title">Build Transaction</div>
+    <div class="tx-builder">
+      <div class="field-group">
+        <label style="display:flex;justify-content:space-between;align-items:center">
+          user_id
+          <span onclick="setNewUUID()" title="Generate new UUID"
+            style="cursor:pointer;color:var(--accent);font-size:11px;letter-spacing:0;text-transform:none;font-family:var(--mono);opacity:0.8;transition:opacity 0.2s"
+            onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.8">⟳ regen</span>
+        </label>
+        <input type="text" id="f-userid" style="font-size:11px;letter-spacing:0.3px" readonly>
+      </div>
+      <div class="field-group">
+        <label>amount</label>
+        <input type="number" id="f-amount" value="49.99" min="0.01" step="0.01">
+      </div>
+      <div class="field-group">
+        <label>currency</label>
+        <select id="f-currency">
+          <option value="XAF">XAF</option>
+          <option value="USD">USD</option>
+          <option value="EUR">EUR</option>
+          <option value="GBP">GBP</option>
+          <option value="GHS">GHS</option>
+          <option value="NGN">NGN</option>
+        </select>
+      </div>
+      <button class="btn-primary" id="send-btn" onclick="sendTransaction()">
+        ▶ SEND TRANSACTION
+      </button>
+    </div>
+
+    <div class="config-section">
+      <div class="section-title">API Config</div>
+      <div class="tx-builder">
+        <div class="field-group">
+          <label>API Base URL</label>
+          <input type="text" id="cfg-api" value="http://localhost:8080">
+        </div>
+        <div class="field-group">
+          <label>WebSocket URL</label>
+          <input type="text" id="cfg-ws" value="ws://localhost:9000/ws">
+        </div>
+        <button class="btn-primary" style="background:rgba(0,245,196,0.15);color:var(--accent);border:1px solid var(--accent);" onclick="connectWS()">
+          ⚡ CONNECT WS
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN FEED -->
+  <main class="main-feed">
+    <div class="feed-header">
+      <div class="feed-title">Live Transaction Feed</div>
+      <div style="display:flex;gap:12px;align-items:center">
+        <div class="filter-tabs">
+          <button class="tab active" onclick="setFilter('all',this)">All</button>
+          <button class="tab" onclick="setFilter('APPROVED',this)">Approved</button>
+          <button class="tab" onclick="setFilter('FLAGGED',this)">Flagged</button>
+          <button class="tab" onclick="setFilter('DECLINED',this)">Declined</button>
+        </div>
+        <button onclick="fetchAllTransactions()" style="background:none;border:1px solid var(--border);color:var(--accent);padding:5px 10px;border-radius:4px;cursor:pointer;font-size:11px;font-family:var(--sans);">↻ Refresh</button>
+        <button onclick="clearFeed()" style="background:none;border:1px solid var(--border);color:var(--text-dim);padding:5px 10px;border-radius:4px;cursor:pointer;font-size:11px;font-family:var(--sans);">Clear</button>
+      </div>
+    </div>
+    <div class="tx-list" id="tx-list">
+      <div class="empty-state">
+        <div class="empty-icon">📡</div>
+        <div>Awaiting transactions...</div>
+        <div style="font-size:11px;color:var(--text-dim)">Connect WebSocket or send a test transaction</div>
+      </div>
+    </div>
+  </main>
+
+  <!-- RIGHT PANEL: Risk & Alerts -->
+  <aside class="sidebar-right">
+    <div class="gauge-section">
+      <div class="section-title">Risk Score</div>
+      <div class="gauge-wrap">
+        <svg class="gauge-svg" viewBox="0 0 160 90">
+          <path d="M 10 80 A 70 70 0 0 1 150 80" fill="none" stroke="#1a2540" stroke-width="12" stroke-linecap="round"/>
+          <path id="gauge-arc" d="M 10 80 A 70 70 0 0 1 150 80" fill="none" stroke="var(--accent)" stroke-width="12" stroke-linecap="round"
+            stroke-dasharray="220" stroke-dashoffset="220" style="transition: stroke-dashoffset 0.8s, stroke 0.5s;"/>
+        </svg>
+        <div class="gauge-val" id="gauge-num">0</div>
+        <div class="gauge-label">Risk Index</div>
+      </div>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-val" style="color:var(--safe)" id="s-rate">0%</div>
+        <div class="stat-label">Approval Rate</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" style="color:var(--danger)" id="s-fraud">0%</div>
+        <div class="stat-label">Fraud Rate</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" id="s-volume">$0</div>
+        <div class="stat-label">Volume</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" id="s-avg">$0</div>
+        <div class="stat-label">Avg Amount</div>
+      </div>
+    </div>
+
+    <div class="sparkline-wrap">
+      <div class="section-title" style="margin-bottom:6px">Tx / Minute</div>
+      <canvas id="spark" class="spark" height="60"></canvas>
+    </div>
+
+    <div class="alerts-section">
+      <div class="section-title">Alert Stream</div>
+      <div id="alert-list"></div>
+    </div>
+
+    <div class="ws-log" id="ws-log">
+      <div class="ws-log-line sys">// WebSocket log</div>
+    </div>
+  </aside>
+</div>
+
+<!-- Response Panel -->
+<div class="response-panel" id="resp-panel">
+  <span class="response-close" onclick="document.getElementById('resp-panel').classList.remove('show')">✕</span>
+  <div style="font-size:10px;color:var(--text-dim);margin-bottom:8px;letter-spacing:1px">API RESPONSE</div>
+  <pre id="resp-body"></pre>
+</div>
+
+<script>
+let ws = null;
+let transactions = [];
+let filter = 'all';
+let totalVolume = 0;
+let wsConnected = false;
+
+// Sparkline data
+let sparkData = Array(30).fill(0);
+let sparkCtx = null;
+let txPerMinute = 0;
+let txCountThisMinute = 0;
+
+window.onload = () => {
+  sparkCtx = document.getElementById('spark').getContext('2d');
+  drawSpark();
+  setInterval(() => {
+    sparkData.push(txCountThisMinute);
+    sparkData.shift();
+    txCountThisMinute = 0;
+    drawSpark();
+  }, 2000);
+  setNewUUID();
+  fetchAllTransactions();
+};
+
+function drawSpark() {
+  const canvas = document.getElementById('spark');
+  const ctx = sparkCtx;
+  const w = canvas.offsetWidth || 288;
+  const h = 60;
+  canvas.width = w;
+  canvas.height = h;
+  ctx.clearRect(0,0,w,h);
+  const max = Math.max(...sparkData, 1);
+  const step = w / (sparkData.length - 1);
+
+  ctx.beginPath();
+  sparkData.forEach((v, i) => {
+    const x = i * step;
+    const y = h - (v / max) * (h - 8) - 4;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.strokeStyle = 'rgba(0,245,196,0.7)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Fill
+  ctx.lineTo(w, h); ctx.lineTo(0, h); ctx.closePath();
+  ctx.fillStyle = 'rgba(0,245,196,0.08)';
+  ctx.fill();
+}
+
+async function fetchAllTransactions() {
+  const base = document.getElementById('cfg-api').value;
+  const list = document.getElementById('tx-list');
+
+  // Show loading state
+  list.innerHTML = '<div class="empty-state"><div class="empty-icon" style="animation:pulse-hex 1s infinite">⬡</div><div>Loading transactions...</div></div>';
+
+  try {
+    const res = await fetch(`${base}/payments`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+
+    // data may be an array directly, or wrapped e.g. { transactions: [...] }
+    const txList = Array.isArray(data) ? data : (data.transactions || data.data || []);
+
+    if (txList.length === 0) {
+      list.innerHTML = '<div class="empty-state"><div class="empty-icon">📡</div><div>No transactions yet</div><div style="font-size:11px;color:var(--text-dim)">Send a test transaction to get started</div></div>';
+      return;
+    }
+
+    // Sort by created_at descending (newest first)
+    txList.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+    // Load into state without triggering re-renders each time
+    txList.forEach(raw => {
+      const tx = {
+        id:         raw.id || genId(),
+        user_id:    raw.user_id || '—',
+        amount:     raw.amount || 0,
+        currency:   raw.currency || 'USD',
+        status:     (raw.status || 'PENDING').toUpperCase(),
+        created_at: raw.created_at ? new Date(raw.created_at) : new Date(),
+        risk_score: null,
+        reason:     null,
+        raw
+      };
+      transactions.push(tx);
+      totalVolume += tx.amount;
+    });
+
+    wsLog('sys', `✓ Loaded ${txList.length} transactions from GET /payments`);
+    updateStats();
+    renderFeed();
+  } catch(e) {
+    wsLog('err', `GET /payments failed: ${e.message}`);
+    list.innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><div style="color:var(--danger)">Could not load transactions</div><div style="font-size:11px;color:var(--text-dim)">Is your server running?</div></div>';
+  }
+}
+
+function connectWS() {
+  const url = document.getElementById('cfg-ws').value;
+  if (ws) { ws.close(); }
+
+  wsLog('sys', `Connecting to ${url}...`);
+  try {
+    ws = new WebSocket(url);
+    ws.onopen = () => {
+      wsConnected = true;
+      document.getElementById('ws-dot').className = 'ws-dot connected';
+      document.getElementById('ws-label').textContent = 'CONNECTED';
+      wsLog('sys', '✓ Connected');
+    };
+    ws.onmessage = (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        // Log full raw payload so we can see exact field values
+        wsLog('in', `← RAW: ${JSON.stringify(data)}`);
+        handleIncoming(data);
+      } catch(err) {
+        wsLog('err', `WS parse error: ${err.message} | raw: ${e.data.substring(0,120)}`);
+      }
+    };
+    ws.onclose = () => {
+      wsConnected = false;
+      document.getElementById('ws-dot').className = 'ws-dot';
+      document.getElementById('ws-label').textContent = 'DISCONNECTED';
+      wsLog('sys', '✗ Connection closed');
+    };
+    ws.onerror = () => {
+      document.getElementById('ws-dot').className = 'ws-dot error';
+      wsLog('err', 'WebSocket error');
+    };
+  } catch(e) {
+    wsLog('err', 'Failed: ' + e.message);
+  }
+}
+
+// handleTransaction maps a Transaction struct response from POST /payments
+function handleTransaction(data) {
+  const tx = {
+    id:         data.id || genId(),
+    user_id:    data.user_id || '—',
+    amount:     data.amount || 0,
+    currency:   data.currency || 'USD',
+    status:     (data.status || 'PENDING').toUpperCase(),
+    created_at: data.created_at ? new Date(data.created_at) : new Date(),
+    // fraud alert fields populated when a FraudAlert arrives via WS
+    risk_score: null,
+    reason:     null,
+    raw:        data
+  };
+  addTransaction(tx);
+}
+
+// handleFraudAlert maps a FraudAlert struct arriving over WebSocket:
+// { transaction_id, risk_score, reason }
+function handleFraudAlert(alert) {
+  wsLog('in', `← FRAUD ALERT txn=${alert.transaction_id} score=${alert.risk_score}`);
+  // Enrich existing transaction if already in list
+  const existing = transactions.find(t => t.id === alert.transaction_id);
+  if (existing) {
+    existing.risk_score = alert.risk_score;
+    existing.reason     = alert.reason;
+    // Only override status if score actually signals fraud — don't blindly overwrite API status
+    if (alert.risk_score > 0.9) {
+      existing.status = 'DECLINED';
+    } else if (alert.risk_score > 0.6) {
+      existing.status = 'FLAGGED';
+    }
+    // If score is 0 or low, keep the status the API already set
+    existing.raw = { ...existing.raw, ...alert };
+    updateStats();
+    updateRisk(alert.risk_score);
+    renderFeed();
+    addAlert(existing);
+  } else {
+    // Alert arrived before transaction — create a placeholder
+    const tx = {
+      id:         alert.transaction_id,
+      user_id:    '—',
+      amount:     0,
+      currency:   '—',
+      status:     alert.risk_score > 0.8 ? 'DECLINED' : alert.risk_score > 0.6 ? 'FLAGGED' : 'PENDING',
+      created_at: new Date(),
+      risk_score: alert.risk_score,
+      reason:     alert.reason,
+      raw:        alert
+    };
+    addTransaction(tx);
+  }
+}
+
+// Route incoming WS message to the right handler
+function handleIncoming(data) {
+  if (data.transaction_id !== undefined && data.risk_score !== undefined && data.reason !== undefined) {
+    // Matches FraudAlert struct
+    handleFraudAlert(data);
+  } else if (data.id !== undefined) {
+    // Matches Transaction struct
+    handleTransaction(data);
+  } else {
+    wsLog('sys', 'Unknown message shape: ' + JSON.stringify(data).substring(0, 80));
+  }
+}
+
+function wsLog(type, msg) {
+  const log = document.getElementById('ws-log');
+  const line = document.createElement('div');
+  line.className = `ws-log-line ${type}`;
+  const t = new Date().toLocaleTimeString('en-US', {hour12:false});
+  line.textContent = `[${t}] ${msg}`;
+  log.appendChild(line);
+  log.scrollTop = log.scrollHeight;
+  // Keep only 50 lines
+  while (log.children.length > 50) log.removeChild(log.firstChild);
+}
+
+const scenarios = {
+  // Layer 1: currency != XAF AND amount > 6000 → +0.5
+  'l1-trigger':  { amount: 6500,   currency: 'USD', label: 'Foreign >6000', desc: 'Triggers Layer 1 (+0.5)' },
+  'l1-safe':     { amount: 5999,   currency: 'USD', label: 'Foreign <6000', desc: 'Just under Layer 1 threshold' },
+  'l1-xaf-safe': { amount: 50000,  currency: 'XAF', label: 'XAF Large',    desc: 'Large but XAF — no Layer 1' },
+
+  // Layer 2: velocity — send this multiple times rapidly to exceed 1000 XAF/hr → +0.3
+  'l2-velocity': { amount: 400,    currency: 'XAF', label: 'Velocity ×3',  desc: 'Send 3x to exceed 1000/hr (+0.3)' },
+
+  // Layer 1 + Layer 2 combined → 0.8+ score (likely DECLINED)
+  'l1-l2-combo': { amount: 7000,   currency: 'EUR', label: 'L1 + Velocity', desc: 'High foreign + send multiple times' },
+
+  // Safe baseline
+  'safe':        { amount: 500,    currency: 'XAF', label: 'Normal XAF',   desc: 'Low amount, local currency' },
+};
+
+function generateUUID() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = crypto.getRandomValues(new Uint8Array(1))[0] % 16;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
+function setNewUUID() {
+  const input = document.getElementById('f-userid');
+  input.value = generateUUID();
+  // Brief flash animation
+  input.style.borderColor = 'var(--accent)';
+  input.style.color = 'var(--accent)';
+  setTimeout(() => {
+    input.style.borderColor = '';
+    input.style.color = '';
+  }, 400);
+}
+
+function loadScenario(key) {
+  const s = scenarios[key];
+  if (!s) return;
+  // Each scenario gets a fresh UUID — different user per test case
+  setNewUUID();
+  document.getElementById('f-amount').value = s.amount;
+  document.getElementById('f-currency').value = s.currency;
+  // Show scenario description in WS log as a hint
+  if (s.desc) wsLog('sys', `ℹ ${s.label}: ${s.desc}`);
+}
+
+async function sendTransaction() {
+  const btn = document.getElementById('send-btn');
+  btn.disabled = true;
+  btn.textContent = 'SENDING...';
+
+  // Payload matches Transaction struct: user_id, amount, currency
+  const payload = {
+    user_id:  document.getElementById('f-userid').value,
+    amount:   parseFloat(document.getElementById('f-amount').value),
+    currency: document.getElementById('f-currency').value,
+  };
+
+  const base = document.getElementById('cfg-api').value;
+  wsLog('out', `→ POST ${base}/payments ${JSON.stringify(payload).substring(0,60)}`);
+
+  try {
+    const res = await fetch(`${base}/payments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    wsLog('in', `← ${res.status} ${JSON.stringify(data).substring(0,80)}`);
+    showResponse(data);
+    handleTransaction(data);
+  } catch(e) {
+    wsLog('err', 'Request failed: ' + e.message);
+    showError(`Could not reach API at ${base}/payments — is your server running with CORS enabled?`);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '▶ SEND TRANSACTION';
+  }
+}
+
+
+function showError(msg) {
+  const body = document.getElementById("resp-body");
+  body.textContent = "⚠ " + msg;
+  body.style.color = "var(--danger)";
+  document.getElementById("resp-panel").classList.add("show");
+  setTimeout(() => {
+    document.getElementById("resp-panel").classList.remove("show");
+    body.style.color = "";
+  }, 6000);
+}
+
+function showResponse(data) {
+  document.getElementById('resp-body').textContent = JSON.stringify(data, null, 2);
+  document.getElementById('resp-panel').classList.add('show');
+  setTimeout(() => document.getElementById('resp-panel').classList.remove('show'), 6000);
+}
+
+function addTransaction(tx) {
+  transactions.unshift(tx);
+  txCountThisMinute++;
+  totalVolume += tx.amount;
+  updateStats();
+  if (tx.risk_score != null) updateRisk(tx.risk_score);
+  renderFeed();
+  if (tx.status === 'DECLINED' || tx.status === 'FLAGGED') {
+    addAlert(tx);
+  }
+}
+
+function updateStats() {
+  const total = transactions.length;
+  const approved = transactions.filter(t => t.status === 'APPROVED').length;
+  const flagged = transactions.filter(t => t.status === 'FLAGGED').length;
+  const declined = transactions.filter(t => t.status === 'DECLINED').length;
+
+  document.getElementById('stat-total').textContent = total;
+  document.getElementById('stat-approved').textContent = approved;
+  document.getElementById('stat-flagged').textContent = flagged;
+  document.getElementById('stat-declined').textContent = declined;
+
+  const approvalRate = total ? Math.round(approved/total*100) : 0;
+  const fraudRate = total ? Math.round(declined/total*100) : 0;
+
+  document.getElementById('s-rate').textContent = approvalRate + '%';
+  document.getElementById('s-fraud').textContent = fraudRate + '%';
+  document.getElementById('s-volume').textContent = '$' + (totalVolume/1000).toFixed(1) + 'k';
+  document.getElementById('s-avg').textContent = '$' + (total ? totalVolume/total : 0).toFixed(0);
+}
+
+let riskHistory = [];
+function updateRisk(score) {
+  // score from API is 0.0-1.0, scale to 0-100 for display
+  const scaled = score * 100;
+  riskHistory.unshift(scaled);
+  if (riskHistory.length > 10) riskHistory.pop();
+  const avg = riskHistory.reduce((a,b) => a+b, 0) / riskHistory.length;
+
+  document.getElementById('gauge-num').textContent = avg.toFixed(1);
+
+  const color = avg > 70 ? 'var(--danger)' : avg > 40 ? 'var(--warn)' : 'var(--accent)';
+  document.getElementById('gauge-num').style.color = color;
+
+  const arc = document.getElementById('gauge-arc');
+  const offset = 220 - (avg / 100) * 220;
+  arc.style.strokeDashoffset = offset;
+  arc.style.stroke = color;
+}
+
+function renderFeed() {
+  const list = document.getElementById('tx-list');
+  const filtered = filter === 'all' ? transactions : transactions.filter(t => t.status === filter);
+
+  if (filtered.length === 0) {
+    list.innerHTML = '<div class="empty-state"><div class="empty-icon">📡</div><div>No transactions yet</div><div style="font-size:11px;color:var(--text-dim)">Send a test transaction to get started</div></div>';
+    return;
+  }
+
+  list.innerHTML = '';
+  filtered.slice(0, 100).forEach(tx => {
+    const card = document.createElement('div');
+    card.className = `tx-card ${tx.status}`;
+    const time = tx.created_at ? tx.created_at.toLocaleTimeString('en-US', {hour12:false}) : '—';
+    const riskBadge = tx.risk_score != null
+      ? `<span style="font-size:10px;color:${tx.risk_score>=0.7?'var(--danger)':tx.risk_score>=0.4?'var(--warn)':'var(--accent)'};margin-left:6px;font-family:var(--mono)">⬡ ${(tx.risk_score*100).toFixed(0)}%</span>`
+      : '';
+    const reasonLine = tx.reason
+      ? `<div style="font-size:10px;color:var(--text-dim);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${tx.reason}</div>`
+      : '';
+    card.innerHTML = `
+      <div class="tx-icon">💳</div>
+      <div class="tx-meta">
+        <div class="tx-id">${tx.id}</div>
+        <div class="tx-desc">user: ${tx.user_id}${riskBadge}</div>
+        ${reasonLine}
+      </div>
+      <div class="tx-amount" style="color:${tx.status==='DECLINED'?'var(--danger)':tx.status==='FLAGGED'?'var(--warn)':'var(--text)'}">${formatCurrency(tx.amount, tx.currency)}</div>
+      <div>
+        <div class="tx-status status-${tx.status}">${tx.status}</div>
+        <div class="tx-time" style="margin-top:4px;text-align:right">${time}</div>
+      </div>`;
+    card.onclick = () => showResponse(tx.raw || tx);
+    list.appendChild(card);
+  });
+}
+
+function formatCurrency(amount, currency) {
+  if (!amount) return '$0.00';
+  const sym = {USD:'$',EUR:'€',GBP:'£',BTC:'₿',NGN:'₦'}[currency] || currency+' ';
+  return sym + parseFloat(amount).toFixed(2);
+}
+
+function addAlert(tx) {
+  const list = document.getElementById('alert-list');
+  const item = document.createElement('div');
+  item.className = 'alert-item';
+  const color = tx.status === 'DECLINED' ? 'var(--danger)' : 'var(--warn)';
+  const score = tx.risk_score != null ? (tx.risk_score * 100).toFixed(0) + '%' : '—';
+  const msg = tx.status === 'DECLINED'
+    ? `${tx.id} declined — score ${score} — ${tx.reason || 'High risk'}`
+    : `${tx.id} flagged — score ${score} — ${tx.reason || 'Suspicious pattern'}`;
+  item.innerHTML = `
+    <div class="alert-dot" style="background:${color};box-shadow:0 0 6px ${color}"></div>
+    <div class="alert-content">
+      <div style="color:${color};font-weight:700;font-size:11px">${tx.status}</div>
+      <div>${msg}</div>
+      <div class="alert-time">${tx.created_at ? tx.created_at.toLocaleTimeString() : new Date().toLocaleTimeString()}</div>
+    </div>`;
+  list.insertBefore(item, list.firstChild);
+  while (list.children.length > 20) list.removeChild(list.lastChild);
+}
+
+function setFilter(f, btn) {
+  filter = f;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  renderFeed();
+}
+
+function clearFeed() {
+  transactions = [];
+  totalVolume = 0;
+  riskHistory = [];
+  updateStats();
+  updateRisk(0);
+  document.getElementById('alert-list').innerHTML = '';
+  renderFeed();
+}
+
+async function refreshFeed() {
+  transactions = [];
+  totalVolume = 0;
+  riskHistory = [];
+  document.getElementById('alert-list').innerHTML = '';
+  await fetchAllTransactions();
+}
+
+function genId() {
+  return 'txn_' + Math.random().toString(36).substr(2, 8);
+}
+
+// Auto-attempt WS connection on load
+setTimeout(() => { connectWS(); }, 500);
+</script>
+</body>
+</html>

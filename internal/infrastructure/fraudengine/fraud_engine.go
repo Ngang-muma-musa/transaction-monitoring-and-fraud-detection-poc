@@ -41,7 +41,7 @@ func (e *FraudEngine) Analyze(
 	// LAYER 1: RULES (Static)
 	// Watchlists or Sanctions Lists are usually checked here
 	if tx.Currency != "XAF" && tx.Amount > 6000 {
-		totalScore += 0.5
+		totalScore += 0.4
 		reasons = append(reasons, "high_value_foreign_currency")
 	}
 
@@ -59,14 +59,19 @@ func (e *FraudEngine) Analyze(
 
 	//  LAYER 3: PROBABILISTIC (ML/AI)
 	aiProbability := e.mlClient.GetInference(tx)
-	if aiProbability > 0.4 {
-		totalScore += (aiProbability * 0.4)
+	if aiProbability > 0.3 {
+		totalScore += (aiProbability * 0.2)
 		reasons = append(reasons, "ml_anomaly_detected")
 	}
 
 	alert := domain.FraudAlert{
-		RiskScore: math.Min(totalScore, 1.0),
-		Reason:    strings.Join(reasons, ", "),
+		TransactionID: tx.ID,
+		RiskScore:     math.Min(totalScore, 1.0),
+		Reason:        strings.Join(reasons, ", "),
+	}
+
+	if totalScore == 0 {
+		return &alert, nil
 	}
 
 	// Convert the alert to JSON

@@ -5,7 +5,6 @@ import (
 	"frauddetection/internal/domain"
 	"frauddetection/internal/domain/ports"
 	"log"
-	"time"
 )
 
 type TransactionProcessor struct {
@@ -32,6 +31,14 @@ func (p *TransactionProcessor) Process(
 	log.Printf("Fraud analysis result for transaction %s: score=%.2f reasons=%v",
 		tx.ID, result.RiskScore, result.Reason)
 
+	if result.RiskScore > 0.8 {
+		return p.repo.UpdateStatus(
+			ctx,
+			tx.ID,
+			domain.StatusDeclined,
+		)
+	}
+
 	if result.RiskScore > 0.6 {
 		return p.repo.UpdateStatus(
 			ctx,
@@ -39,9 +46,6 @@ func (p *TransactionProcessor) Process(
 			domain.StatusFlagged,
 		)
 	}
-
-	// Simulate payment processing
-	time.Sleep(3 * time.Second)
 
 	return p.repo.UpdateStatus(
 		ctx,
