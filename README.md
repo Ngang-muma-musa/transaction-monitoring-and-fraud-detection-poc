@@ -126,7 +126,7 @@ flowchart LR
 ## 1. Clone the repository
 
 ```bash
-git clone https://github.com/your-username/your-repo.git
+git clone https://github.com/Ngang-muma-musa/transaction-monitoring-and-fraud-detection-poc
 cd your-repo
 ```
 
@@ -336,7 +336,7 @@ Establish a WebSocket connection to receive real-time fraud alerts. The server p
 
 **Connection**
 ```
-ws://localhost:8080/ws
+ws://localhost:9000/ws
 ```
 
 **Incoming Message — FraudAlert**
